@@ -27,9 +27,21 @@ export interface ZWaveOptions {
 
 		/**
 		 * @internal
-		 * How long to wait for a poll after setting a value
+		 * How long to wait for a poll after setting a value without transition duration
 		 */
 		refreshValue: number;
+
+		/**
+		 * @internal
+		 * How long to wait for a poll after setting a value with transition duration. This doubles as the "fast" delay.
+		 */
+		refreshValueAfterTransition: number;
+
+		/**
+		 * How long to wait for the Serial API Started command after a soft-reset before resorting
+		 * to polling the API for the responsiveness check.
+		 */
+		serialAPIStarted: number; // [1000...30000], default: 5000 ms
 	};
 
 	attempts: {
@@ -138,8 +150,8 @@ export interface ZWaveOptions {
 
 	/**
 	 * Soft Reset is required after some commands like changing the RF region or restoring an NVM backup.
-	 * Because it may be problematic in certain environments like Docker, the functionality must be opted into.
-	 * Default: `false` in Docker, `true` when ZWAVEJS_ENABLE_SOFT_RESET env variable is set or outside Docker.
+	 * Because it may be problematic in certain environments, we provide the user with an option to opt out.
+	 * Default: `true,` except when ZWAVEJS_DISABLE_SOFT_RESET env variable is set.
 	 */
 	enableSoftReset?: boolean;
 

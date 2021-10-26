@@ -107,8 +107,7 @@ async trySoftReset(): Promise<void>
 
 Instruct the controller to soft-reset (restart). The returned Promise will resolve after the controller has restarted and can be used again.
 
-> [!NOTE] Soft-reset is known to cause problems in Docker containers where a reconnection of the serial device will prevent it from being connected again. There are ways around this, but they require host configuration or changes to how the container is started.  
-> Therefore soft-reset is disabled in Docker unless the `ZWAVEJS_ENABLE_SOFT_RESET` environment variable or the `enableSoftReset` driver option is set.
+> [!NOTE] Soft-reset may cause problems in Docker containers with certain Z-Wave sticks if they disconnect and reconnect too quickly so that the stick's address changes. Therefore, soft-reset may be disabled by setting the ZWAVEJS_DISABLE_SOFT_RESET environment variable. It is also possible to workaround this issue with more advanced udev configurations.
 
 `softReset` will throw when called while soft-reset is not enabled. Consider using `trySoftReset` instead, which only performs a soft-reset when enabled.
 
@@ -187,6 +186,19 @@ trySendCommandSupervised(command: CommandClass, options?: SendSupervisedCommandO
 
 If `Supervision CC` is not supported, the returned promise resolves to `undefined`.
 
+### `waitForMessage`
+
+```ts
+waitForMessage<T extends Message>(predicate: (msg: Message) => boolean, timeout: number): Promise<T>
+```
+
+Waits until an unsolicited serial message is received which matches the given predicate or a timeout has elapsed. Resolves the received message. This method takes two arguments:
+
+-   `predicate` - A predicate function that will be called for every received unsolicited message. If the function returns `true`, the returned promise will be resolved with the message.
+-   `timeout` - The timeout in milliseconds after which the returned promise will be rejected if no matching message has been received.
+
+> [!NOTE] This does not trigger for (Bridge)ApplicationCommandRequests, which are handled differently. To wait for a certain CommandClass, use [`waitForCommand`](#waitForCommand).
+
 ### `waitForCommand`
 
 ```ts
@@ -195,7 +207,7 @@ waitForCommand<T extends CommandClass>(predicate: (cc: CommandClass) => boolean,
 
 Waits until an unsolicited command is received which matches the given predicate or a timeout has elapsed. Resolves the received command. This method takes two arguments:
 
--   `predicate` - A predicate function that will be called for every received command. If the function returns true, the returned promise will be resolved with the command.
+-   `predicate` - A predicate function that will be called for every received command. If the function returns `true`, the returned promise will be resolved with the command.
 -   `timeout` - The timeout in milliseconds after which the returned promise will be rejected if no matching command has been received.
 
 ### `saveNetworkToCache`
@@ -521,6 +533,11 @@ interface ZWaveOptions {
 
 		/** How long generated nonces are valid */
 		nonce: number; // [3000...20000], default: 5000 ms
+		/**
+		 * How long to wait for the Serial API Started command after a soft-reset before resorting
+		 * to polling the API for the responsiveness check.
+		 */
+		serialAPIStarted: number; // [1000...30000], default: 5000 ms
 	};
 
 	attempts: {
@@ -610,8 +627,8 @@ interface ZWaveOptions {
 
 	/**
 	 * Soft Reset is required after some commands like changing the RF region or restoring an NVM backup.
-	 * Because it may be problematic in certain environments like Docker, the functionality must be opted into.
-	 * Default: `false` in Docker, `true` when ZWAVEJS_ENABLE_SOFT_RESET env variable is set or outside Docker.
+	 * Because it may be problematic in certain environments, we provide the user with an option to opt out.
+	 * Default: `true,` except when ZWAVEJS_DISABLE_SOFT_RESET env variable is set.
 	 */
 	enableSoftReset?: boolean;
 
